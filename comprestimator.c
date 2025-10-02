@@ -29,14 +29,10 @@
 #endif
 
 #define MAX_NUM_SAMPLE		2000	//Max number of non-zero samples to take
-#define ZERO_BLOCK_FACTOR	10	//Ratio of zero blocks to non-zero
-//#define INBLOCK_SIZE		1048576	//Input block size in bytes (read from disk)
-#define INBLOCK_SIZE		4096 //262144	//Input block size in bytes (read from disk)
-//#define INBLOCK_SIZE		131072	//Input block size in bytes (read from disk)
-//#define OUTBLOCK_SIZE		65536	//Output block size in bytes (close gzip)
-#define ZLIB_BLOCK_SIZE		32768 //65536	//Input block size to zlib in bytes 
-#define OUTBLOCK_SIZE		32768	//Output block size in bytes (close gzip)
-//#define ZLIB_BLOCK_SIZE		32768	//Input block size to zlib in bytes 
+#define ZERO_BLOCK_FACTOR	10	    //Ratio of zero blocks to non-zero
+#define INBLOCK_SIZE		2048 	//Input block size in bytes (read from disk)
+#define ZLIB_BLOCK_SIZE		16384 	//Input block size to zlib in bytes 
+#define OUTBLOCK_SIZE		2048	//Output block size in bytes (close gzip)
 #define COMP_UNIT_SIZE		134217728	//Input to streamer in bytes (=128MB)
 #define BLOCKS_PER_PROC		50	//How many blocks each process should handle (random)
 #define MAX_NUM_PROCS		128	//Maximum number of child processes
@@ -151,8 +147,7 @@ static double confidence(double *conf_zeros, double *conf_comp) {
 }
 
 static void compress_chunk_random(int fd, off_t read_location, unsigned char
-		*inbuf, unsigned char *outbuf, struct compression_info *info)
-{
+		*inbuf, unsigned char *outbuf, struct compression_info *info) {
 	int ret;
 	ssize_t bytes_read;		//return value of pread
 	off_t end_of_comp_stream;	//end of compression stream
@@ -183,7 +178,7 @@ static void compress_chunk_random(int fd, off_t read_location, unsigned char
 
 	random_num = random() % INBLOCK_SIZE;
 	buffer_size = INBLOCK_SIZE - random_num;
-	end_of_comp_stream = read_location % COMP_UNIT_SIZE + COMP_UNIT_SIZE; //+1 ?????
+	end_of_comp_stream = read_location + COMP_UNIT_SIZE + COMP_UNIT_SIZE; //+1 ?????
 
 	strm.zalloc = Z_NULL;
 	strm.zfree = Z_NULL;
