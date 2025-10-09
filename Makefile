@@ -1,11 +1,14 @@
-LDFLAGS=libz.a -lc -lm -static
+CC = gcc
+CFLAGS = -O2 
+LDFLAGS = -lm
 
 all: comprestimator
 
-comprestimator:	comprestimator.c
-	gcc -g -o comprestimator.o -c comprestimator.c
-	gcc -g -o comprestimator comprestimator.o libz.a -lc -lm
-	rm -f comprestimator.o
+comprestimator: comprestimator.o libz.a
+	$(CC) $(CFLAGS) -o $@ comprestimator.o libz.a $(LDFLAGS)
+
+comprestimator.o: comprestimator.c
+	$(CC) $(CFLAGS) -c comprestimator.c
 
 clean:
-	rm -f comprestimator
+	rm -f comprestimator comprestimator.o

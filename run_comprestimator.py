@@ -182,6 +182,7 @@ def directory_comprestimator(src_dir: str, sampling_strategy=SamplingStrategy.AU
         # delete archive
         os.unlink(temp_file.name)
 
+
 def main():
     parser = argparse.ArgumentParser(description="Estimates FCM Compression on GPFS for a given input file/directory")
     parser.add_argument('-p', '--path', type=validate_path, required=True, help="Path to input file/directory")  # path to process
