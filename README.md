@@ -2,7 +2,9 @@ Originally authored by _Avishay Traeger_, _Danny Harnik_, _Dmitry Sotnikov_
 , Modified for ESS by _Sarvesh Chezhian_
 
 
----
+## Requirements
+* x86_64 Linux
+* Python3.x Installed and available in PATH
 
 ## Checkout
 * Create your SSH keys, and add them to your GitHub profile.
