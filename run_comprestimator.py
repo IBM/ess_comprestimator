@@ -179,13 +179,24 @@ def directory_comprestimator(src_dir: str, sampling_strategy=SamplingStrategy.AU
 
     print("Creating archive for comprestimator input...")
 
-    temp_file = tempfile.NamedTemporaryFile(delete=False)
+    current_dir = os.getcwd()
+    temp_file = tempfile.NamedTemporaryFile(delete=False, prefix="tmp_", dir=current_dir)
+    files_added = 0
     try:
+        print("Creating temporary file for archive at", temp_file.name, "...")
         # add sample files to archive
         with tarfile.open(fileobj=temp_file, mode='w:') as tar:
             for file in files_sample:
-                tar.add(file)
-        
+                try:
+                    tar.add(file)
+                    files_added +=1
+                except PermissionError:
+                    print(f"Could not access {file} due to insufficient permissions. Skipping...")
+
+        files_not_added = len(files_sample) - files_added
+        if files_not_added >= (.25 * len(files_sample)):
+            print("Warning! > 25% of files in the sample could not be read due to lack of permissions. Comprestimator result may be inaccurate")
+
         print("Running comprestimator on archive...")
 
         # close archive and run comprestimator on it
@@ -195,6 +206,7 @@ def directory_comprestimator(src_dir: str, sampling_strategy=SamplingStrategy.AU
         print("Comprestimator finished!")
     finally: 
         # delete archive
+        print("Deleting temporary file...")
         os.unlink(temp_file.name)
 
 
