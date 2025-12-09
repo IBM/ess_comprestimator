@@ -41,3 +41,11 @@ python3 run_comprestimator.py --path <file path> --sampling-percentage 50%
 
 A higher sampling percentage will be more accurate but slower, 
 and a lower sampling percentage will be less accurate but faster
+
+
+By default, comprestimator will recursively explore nested directories within your target
+directory to most accurately estimate compression. If you prefer scanning only the first
+level of your target directory, you can use the skip nested directories flag:
+```
+python3 run_comprestimator.py --path <file path> --skip-nested-directories
+```

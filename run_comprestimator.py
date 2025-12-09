@@ -126,7 +126,7 @@ def check_if_compressed(file: str, found_compressed_types: set):
             return
 
 
-def directory_comprestimator(src_dir: str, sampling_strategy=SamplingStrategy.AUTO, sampling_percentage=None) -> str:
+def directory_comprestimator(src_dir: str, sampling_strategy=SamplingStrategy.AUTO, sampling_percentage=None, skip_nested_directories=False) -> str:
     """
     Given a directory path, randomly samples files and creates a tar archive from them, and then runs comprestimator on the archive
     """
@@ -134,15 +134,30 @@ def directory_comprestimator(src_dir: str, sampling_strategy=SamplingStrategy.AU
     total_size = 0
 
     # Walk directory, collecting files and their sizes
-    for root, _, files in os.walk(src_dir):
-        for file_name in files:
-            file_path = os.path.join(root, file_name)
-            try:
-                file_size = os.lstat(file_path).st_size
-                files_with_sizes.append((file_path, file_size))
-                total_size += file_size
-            except OSError:
-                continue
+    if skip_nested_directories:
+        print("Skipping nested directories...")
+        for path in os.listdir(src_dir):
+            full_path = os.path.join(src_dir, path)
+            if os.path.isfile(full_path):
+                try:
+                    file_size = os.lstat(full_path).st_size
+                    files_with_sizes.append((full_path, file_size))
+                    total_size += file_size
+                except OSError:
+                    continue
+    else:
+        for root, _, files in os.walk(src_dir):
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
+                try:
+                    file_size = os.lstat(file_path).st_size
+                    files_with_sizes.append((file_path, file_size))
+                    total_size += file_size
+                except OSError:
+                    continue
+
+
+
     if len(files_with_sizes) == 0 or total_size == 0:
         raise Exception("Directory is empty or all files are empty!")
     print(f"Directory has {len(files_with_sizes)} files totalling {total_size} bytes. Sampling files to create archive file...")
@@ -187,14 +202,18 @@ def main():
     parser = argparse.ArgumentParser(description="Estimates FCM Compression on GPFS for a given input file/directory")
     parser.add_argument('-p', '--path', type=validate_path, required=True, help="Path to input file/directory")  # path to process
     sampling_args = parser.add_mutually_exclusive_group()
-    sampling_args.add_argument('--exhaustive-sampling', action="store_true", help="Samples entire input directory for greatest accuracy. Note this will be slow on large directories") # sample entire directory
-    sampling_args.add_argument('--sampling-percentage', type=percent_type, default=None, help="Percentage of input directory size to sampl (e.g. 10%). Increasing this percentage will increase accuracy but slow down the tool.") # sample entire directory
-
+    sampling_args.add_argument('--exhaustive-sampling', action="store_true", help="Samples entire input directory for greatest accuracy. Note this will be slow on large directories")
+    sampling_args.add_argument('--sampling-percentage', type=percent_type, default=None, help="Percentage of input directory size to sample (e.g. 10%%). Increasing this percentage will increase accuracy but slow down the tool.")
+    parser.add_argument('--skip-nested-directories', action="store_true", help="Will not sample directories nested within target directory, only files")
     args = parser.parse_args()
     input_path = args.path
 
+    skip_nested_directories = False
     sampling_strategy = SamplingStrategy.AUTO
     sampling_percentage = None
+
+    if args.skip_nested_directories:
+        skip_nested_directories = True
 
     if args.exhaustive_sampling:
         sampling_strategy = SamplingStrategy.EXHAUSTIVE
@@ -205,7 +224,7 @@ def main():
     if path_is_a_directory:
         # If input is a directory, convert it to a file and run comprestimator on that
         print(f"'{input_path}' is a directory, sampling to create an input file for comprestimator. This may take a while for deeply nested directories...")
-        directory_comprestimator(input_path, sampling_strategy, sampling_percentage)
+        directory_comprestimator(input_path, sampling_strategy, sampling_percentage, skip_nested_directories)
     else:
         # If input is a file, just run comprestimator on it directly
         print(f"'{input_path}' is a file, sampling directly with comprestimator...")
