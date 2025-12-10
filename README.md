@@ -43,9 +43,26 @@ A higher sampling percentage will be more accurate but slower,
 and a lower sampling percentage will be less accurate but faster
 
 
+By default, comprestimator will recursively evaluate every directory and file contained in 
+your target directory. If you wish to exclude hidden files and folders from consideration,
+you can set the skip hidden flag
+```
+python3 run_comprestimator.py --path <file path> --skip-hidden
+```
+
+
+By default, comprestimator will recursively evaluate every directory and file contained in 
+your target directory. If you wish to exclude specific files and folders from consideration,
+you can list them (space separated) with the --exclude flag
+```
+python3 run_comprestimator.py --path <file path> --exclude [FILE_1 ...]
+```
+
+
 By default, comprestimator will recursively explore nested directories within your target
 directory to most accurately estimate compression. If you prefer scanning only the first
 level of your target directory, you can use the skip nested directories flag:
 ```
 python3 run_comprestimator.py --path <file path> --skip-nested-directories
 ```
+
