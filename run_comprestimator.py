@@ -9,7 +9,6 @@ import csv
 from fnmatch import fnmatch
 
 DEFAULT_SAMPLE_FILE_SIZE = 10_000_000_000 # If weighted sampling, sets max file size of sample archive
-SIMPLE_SAMPLE_FILE_COUNT = 10 # If simple sampling, sets max file count
 DEFAULT_SAMPLING_PERCENTAGE = .1
 
 COMPRESTIMATOR_PATH = "./comprestimator"
@@ -23,9 +22,8 @@ class SamplingStrategy(Enum):
     WEIGHTED = 3    # Samples weighted on file size, (good accuracy and speed)
 
 class Sampler():
-    def __init__(self, max_file_size = DEFAULT_SAMPLE_FILE_SIZE, sample_file_count = SIMPLE_SAMPLE_FILE_COUNT):
+    def __init__(self, max_file_size = DEFAULT_SAMPLE_FILE_SIZE):
         self.max_file_size = max_file_size
-        self.sample_file_count = sample_file_count
 
     def sample(self, strategy: SamplingStrategy, file_size_list: list[tuple[str, int]], total_dir_size: int) -> list[str]:
         """
