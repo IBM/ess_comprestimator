@@ -1,6 +1,7 @@
 from enum import Enum
 import subprocess
 import argparse
+import io
 import os
 import random
 import tempfile
@@ -56,31 +57,55 @@ class Sampler():
         current_size = 0
         failed_attempts = 0
         sampling_list: list[str] = []
+        sampling_ratio = self.max_file_size / total_dir_size
+
         while current_size < self.max_file_size:
+            # choose random point in list of files
             initial_list_size = len(sampling_list)
             random_point = random.randrange(0,total_dir_size-current_size)
             current_point = 0
             entry_to_remove = None
+
+            # find corresponding file to that point
             for entry in file_size_list:
                 file, size = entry
                 current_point += size
+                # found target file
                 if random_point < current_point:
-                    sampling_list.append(file)
-                    print(f"Added {file} with size {size} ; current archive is {current_size+size}")
+
+                    # if file is too big to add as-is, add a portion of it
+                    space_remaining = self.max_file_size - current_size
+                    fair_space_allocation = int(size * sampling_ratio)
+                    if size > space_remaining or (size > 0.1*self.max_file_size and size > fair_space_allocation):
+                        sampling_list.append([file, fair_space_allocation, size])
+                        total_dir_size -= (size - fair_space_allocation)
+                        size = fair_space_allocation
+                    else:
+                        sampling_list.append(file)
+                    print(f"Added {file} with size {size} ; current archive is {current_size+size} bytes")
                     current_size += size
                     entry_to_remove = entry
                     break
+
+            # if a file was just added, make sure we don't resample it
             if entry_to_remove:
-                print(f"Removing {entry_to_remove} from consideration for further sampling")
+                print(f"Removing {entry_to_remove[0]} from consideration for further sampling")
                 file_size_list.remove(entry_to_remove)
+
+            # no files left to sample, exit
             if len(file_size_list) == 0:
                 break
+
+            # no file added to sample this run, indicating failure
             if initial_list_size == len(sampling_list):
                 failed_attempts += 1
+
+            # failed to add file 3 times, break out of loop
             if failed_attempts >= 3:
                 print("Note: Several failed sampling attempts. Results may be inaccurate")
                 break
-            
+
+        # no files could be sampled
         if len(sampling_list) == 0:
             raise Exception("Could not sample with provided percentage! Try a different percentage or use an exhaustive sammple")
 
@@ -216,16 +241,18 @@ def directory_comprestimator(src_dir: str, sampling_strategy=SamplingStrategy.AU
         print("Creating temporary file for archive at", temp_file.name, "...")
         # add sample files to archive
         with tarfile.open(fileobj=temp_file, mode='w:') as tar:
-            for file in files_sample:
+            for file_entry in files_sample:
                 try:
-                    tar.add(file)
+                    if isinstance(file_entry, list):
+                        # partial file entry
+                        tarinfo, data_buffer = get_partial_file(file_entry)
+                        tar.addfile(tarinfo, fileobj=data_buffer)
+                        print(f"Added {tarinfo.size} byte portion of file {file_entry[0]} to archive as it was too large")
+                    else:
+                        tar.add(file_entry)
                     files_added +=1
                 except PermissionError:
-                    print(f"Could not access {file} due to insufficient permissions. Skipping...")
-
-        files_not_added = len(files_sample) - files_added
-        if files_not_added >= (.25 * len(files_sample)):
-            print("Warning! > 25%% of files in the sample could not be read due to lack of permissions. Comprestimator result may be inaccurate")
+                    print(f"Could not access {file_entry} due to insufficient permissions. Skipping...")
 
         print("Running comprestimator on archive...")
 
