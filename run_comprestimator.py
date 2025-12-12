@@ -146,12 +146,28 @@ def is_excluded(root, file_name, excluded_patterns, skip_hidden):
         print(full_path, "is excluded, won't evaluate")
     return should_hide
 
+def get_partial_file(file_entry):
+    file_name, amount_to_read, total_size = file_entry
+
+    random_start_point = random.randint(0, total_size-amount_to_read)
+    with open(file_name, 'rb') as f:
+        f.seek(random_start_point)
+        data_segment = f.read(amount_to_read)
+    
+    data_buffer = io.BytesIO(data_segment)
+
+    tarinfo = tarfile.TarInfo(name="comprestimator_partial_" + str(random.randint(0,10_000_000)))
+    tarinfo.size = len(data_segment)
+
+    return tarinfo, data_buffer
+
 def directory_comprestimator(src_dir: str, sampling_strategy=SamplingStrategy.AUTO, sampling_percentage=None, skip_nested_directories=False, excluded_patterns=[], skip_hidden=False) -> str:
     """
     Given a directory path, randomly samples files and creates a tar archive from them, and then runs comprestimator on the archive
     """
     files_with_sizes: list[tuple[str, int]] = []
     total_size = 0
+    messages = []
 
     # Walk directory, collecting files and their sizes
     if skip_nested_directories:
@@ -174,6 +190,8 @@ def directory_comprestimator(src_dir: str, sampling_strategy=SamplingStrategy.AU
     if len(files_with_sizes) == 0 or total_size == 0:
         raise Exception("Directory is empty or all files are empty!")
     print(f"Directory has {len(files_with_sizes)} files totalling {total_size} bytes. Sampling files to create archive file...")
+    if total_size < 1_000_000:
+        raise Exception("Error: Directory is < 1 MB in size. For accurate results, more data is required")
 
     # create list of files to archive
     sample_size = DEFAULT_SAMPLE_FILE_SIZE
@@ -184,7 +202,7 @@ def directory_comprestimator(src_dir: str, sampling_strategy=SamplingStrategy.AU
     else: # not exhaustive, no percentage provided (default behavior to sample 10%)
         sample_size = max(DEFAULT_SAMPLE_FILE_SIZE, int(DEFAULT_SAMPLING_PERCENTAGE * total_size))
     
-    print(f"Sampling {sample_size} bytes from directory")
+    print(f"Sampling up to {sample_size} bytes from directory")
 
     sampler = Sampler(max_file_size=sample_size)        
     files_sample = sampler.sample(sampling_strategy, files_with_sizes, total_size)
@@ -221,6 +239,17 @@ def directory_comprestimator(src_dir: str, sampling_strategy=SamplingStrategy.AU
         print("Deleting temporary file...")
         os.unlink(temp_file.name)
 
+    # count permission errors
+    files_not_added = len(files_sample) - files_added
+    if files_not_added >= (.25 * len(files_sample)):
+        messages.append("Note: > 25%% of files in the sample could not be read due to lack of read permissions. Comprestimator result may be inaccurate")
+
+    # count # of files vs % of directory size
+    if files_added < 0.05 * len(files_with_sizes):
+        messages.append("Note: < 5%% of files in the directory were sampled due to a low sampling percentage. Consider running the tool with a greater --sampling-percentage for more accurate results.")
+
+    return messages
+
 
 def main():
     # Parse arguments
@@ -252,7 +281,6 @@ def main():
 
     excluded_patterns = args.exclude
 
-
     # Handle mutually exclusive arguments: sample a % of directory or the entire thing
     if args.exhaustive_sampling:
         sampling_strategy = SamplingStrategy.EXHAUSTIVE
@@ -261,10 +289,13 @@ def main():
 
     # Run Comprestimator on file or directory
     path_is_a_directory = os.path.isdir(input_path)
+    messages = []
     if path_is_a_directory:
         # If input is a directory, convert it to a file and run comprestimator on that
         print(f"'{input_path}' is a directory, sampling to create an input file for comprestimator. This may take a while for deeply nested directories...")
-        directory_comprestimator(input_path, sampling_strategy, sampling_percentage, skip_nested_directories, excluded_patterns, skip_hidden)
+        messages = directory_comprestimator(input_path, sampling_strategy, \
+                                  sampling_percentage, skip_nested_directories, \
+                                    excluded_patterns, skip_hidden)
     else:
         # If input is a file, just run comprestimator on it directly
         print(f"'{input_path}' is a file, sampling directly with comprestimator...")
@@ -292,6 +323,10 @@ def main():
     else:
         print(f"Estimated Compression Ratio  : {initial_size/compressed_size}x")
 
+    print()
+    if len(messages) > 0:
+        for message in messages:
+            print(message)
 
 if __name__ == "__main__":
     main()
